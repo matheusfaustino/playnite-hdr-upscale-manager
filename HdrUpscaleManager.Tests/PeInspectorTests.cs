@@ -121,7 +121,7 @@ namespace HdrUpscaleManager.Tests
         // Builds a minimal-but-valid PE image: DOS header -> PE/COFF header -> optional
         // header with a single import-table data directory entry -> one section holding
         // the import directory table and the imported DLL name strings.
-        private static byte[] BuildSyntheticPe(bool is64Bit, params string[] importedDlls)
+        internal static byte[] BuildSyntheticPe(bool is64Bit, params string[] importedDlls)
         {
             const int peOffset = 0x80;
             const int coffOffset = peOffset + 4;

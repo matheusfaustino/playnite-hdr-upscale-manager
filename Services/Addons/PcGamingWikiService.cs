@@ -64,7 +64,7 @@ namespace HdrUpscaleManager.Services.Addons
         {
             var cacheKey = GameNameMatcher.NormalizeName(gameName);
             var cached = cache.Get(cacheKey);
-            if (cached != null) return cached;
+            if (IsUsableCachedResult(cached)) return cached;
 
             var result = new PcGamingWikiLookupResult();
             try
@@ -73,22 +73,66 @@ namespace HdrUpscaleManager.Services.Addons
                 if (pageTitle != null)
                 {
                     result.PageTitle = pageTitle;
-                    result.Direct3DVersionsRaw = await QueryDirect3DVersionsAsync(pageTitle).ConfigureAwait(false);
-                    result.ConfidentGraphicsApi = InferConfidentGraphicsApi(result.Direct3DVersionsRaw);
-                    result.ConfidentGraphicsApiForReShade = InferConfidentGraphicsApiForReShade(result.Direct3DVersionsRaw);
-                    result.ConfidentlyAboveDxvkRange = InferConfidentlyAboveDxvkRange(result.Direct3DVersionsRaw);
-
-                    result.EngineRaw = CleanEngineName(await QueryEnginesAsync(pageTitle).ConfigureAwait(false));
-                    result.MappedEngine = MapEngine(result.EngineRaw);
+                    await FillFromWikiAsync(result, pageTitle).ConfigureAwait(false);
                 }
+
+                cache.Set(cacheKey, result);
             }
             catch (Exception ex)
             {
+                /* Deliberately not cached — an empty result written here would be served forever,
+                   hiding data the wiki has (or will have) from every later lookup. */
                 Log.Warn(ex, $"PCGamingWiki lookup failed for '{gameName}'.");
             }
 
-            cache.Set(cacheKey, result);
             return result;
+        }
+
+        /* A page that resolved but carries neither engine nor API data is the shape an earlier
+           build cached when Cargo rejected its queries (see FillFromWikiAsync) — re-query rather
+           than serve it. A game with no wiki page at all stays cached as a legitimate miss. */
+        public static bool IsUsableCachedResult(PcGamingWikiLookupResult cached)
+        {
+            if (cached == null) return false;
+            if (cached.PageTitle == null) return true;
+
+            return !string.IsNullOrEmpty(cached.EngineRaw)
+                || (cached.Direct3DVersionsRaw != null && cached.Direct3DVersionsRaw.Count > 0);
+        }
+
+        /* Cargo is the structured source, but PCGamingWiki started rejecting its queries with
+           "permissiondenied" (confirmed live 2026-10-31) — action=parse of the page's own
+           wikitext still works, so it's the fallback when Cargo errors out. */
+        private static async Task FillFromWikiAsync(PcGamingWikiLookupResult result, string pageTitle)
+        {
+            string engineRaw;
+            try
+            {
+                result.Direct3DVersionsRaw = await QueryDirect3DVersionsAsync(pageTitle).ConfigureAwait(false);
+                engineRaw = CleanEngineName(await QueryEnginesAsync(pageTitle).ConfigureAwait(false));
+            }
+            catch (InvalidOperationException ex)
+            {
+                Log.Warn(ex, $"PCGamingWiki Cargo query rejected for '{pageTitle}' — falling back to page wikitext.");
+                var wikitext = await QueryWikitextAsync(pageTitle).ConfigureAwait(false);
+                result.Direct3DVersionsRaw = ParseWikitextDirect3DVersions(wikitext);
+                engineRaw = ParseWikitextEngine(wikitext);
+            }
+
+            result.ConfidentGraphicsApi = InferConfidentGraphicsApi(result.Direct3DVersionsRaw);
+            result.ConfidentGraphicsApiForReShade = InferConfidentGraphicsApiForReShade(result.Direct3DVersionsRaw);
+            result.ConfidentlyAboveDxvkRange = InferConfidentlyAboveDxvkRange(result.Direct3DVersionsRaw);
+            result.EngineRaw = engineRaw;
+            result.MappedEngine = MapEngine(engineRaw);
+        }
+
+        private static async Task<string> QueryWikitextAsync(string pageTitle)
+        {
+            var url = $"{ApiUrl}?action=parse&page={Uri.EscapeDataString(pageTitle)}&prop=wikitext&redirects=1&format=json&formatversion=2";
+            var json = JObject.Parse(await Http.GetStringAsync(url).ConfigureAwait(false));
+            if (json["error"] != null)
+                throw new InvalidOperationException($"PCGamingWiki parse failed: {json["error"]["info"]}");
+            return (string)json["parse"]?["wikitext"];
         }
 
         /* Retries with a known edition suffix stripped (e.g. "Control Ultimate Edition" ->
@@ -132,8 +176,46 @@ namespace HdrUpscaleManager.Services.Addons
             return (string)FirstRow(json)?["Engines"];
         }
 
-        private static JToken FirstRow(string cargoQueryJson) =>
-            (JObject.Parse(cargoQueryJson)["cargoquery"] as JArray)?.FirstOrDefault()?["title"];
+        private static JToken FirstRow(string cargoQueryJson) => ParseCargoFirstRow(cargoQueryJson);
+
+        /* Throws on an API error body instead of reading it as "no rows" — an error response has
+           no "cargoquery" key, which used to look identical to a page with no data. */
+        public static JToken ParseCargoFirstRow(string cargoQueryJson)
+        {
+            var json = JObject.Parse(cargoQueryJson);
+            if (json["error"] != null)
+                throw new InvalidOperationException($"PCGamingWiki Cargo query failed: {json["error"]["info"]}");
+
+            return (json["cargoquery"] as JArray)?.FirstOrDefault()?["title"];
+        }
+
+        private static readonly Regex WikitextEngineRow = new Regex(
+            @"\{\{Infobox game/row/engine\|([^|}\r\n]+)([^\r\n]*)", RegexOptions.IgnoreCase);
+        private static readonly Regex WikitextDirect3DVersions = new Regex(
+            @"\|\s*direct3d versions\s*=([^\r\n]*)", RegexOptions.IgnoreCase);
+
+        /* First listed engine that isn't marked |Former — e.g. Hollow Knight's page lists an
+           old Unity 5 row ahead of the current one. Falls back to the first row regardless. */
+        public static string ParseWikitextEngine(string wikitext)
+        {
+            if (string.IsNullOrEmpty(wikitext)) return null;
+
+            string first = null;
+            foreach (Match match in WikitextEngineRow.Matches(wikitext))
+            {
+                var name = match.Groups[1].Value.Trim();
+                if (first == null) first = name;
+                if (match.Groups[2].Value.IndexOf("|Former", StringComparison.OrdinalIgnoreCase) < 0) return name;
+            }
+
+            return first;
+        }
+
+        public static List<string> ParseWikitextDirect3DVersions(string wikitext)
+        {
+            var match = string.IsNullOrEmpty(wikitext) ? null : WikitextDirect3DVersions.Match(wikitext);
+            return ParseCargoList(match != null && match.Success ? match.Groups[1].Value : null);
+        }
 
         public static List<string> ParseCargoList(string raw) =>
             string.IsNullOrWhiteSpace(raw)

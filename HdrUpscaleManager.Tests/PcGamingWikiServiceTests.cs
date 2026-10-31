@@ -176,5 +176,118 @@ namespace HdrUpscaleManager.Tests
 
             Assert.False(result);
         }
+
+        [Fact]
+        public void ParseCargoFirstRow_PermissionDeniedError_Throws()
+        {
+            /* Confirmed live 2026-10-31: PCGamingWiki now rejects Cargo queries with this body.
+               It used to parse as "no rows" and got cached as an empty lookup forever. */
+            const string json = "{\"error\":{\"code\":\"permissiondenied\",\"info\":\"You don't have permission to run arbitrary Cargo queries.\"}}";
+
+            Assert.Throws<System.InvalidOperationException>(() => PcGamingWikiService.ParseCargoFirstRow(json));
+        }
+
+        [Fact]
+        public void ParseCargoFirstRow_NoRows_ReturnsNull()
+        {
+            Assert.Null(PcGamingWikiService.ParseCargoFirstRow("{\"cargoquery\":[]}"));
+        }
+
+        [Fact]
+        public void ParseCargoFirstRow_Row_ReturnsTitleObject()
+        {
+            var row = PcGamingWikiService.ParseCargoFirstRow("{\"cargoquery\":[{\"title\":{\"D3D\":\"11\"}}]}");
+
+            Assert.Equal("11", (string)row["D3D"]);
+        }
+
+        [Fact]
+        public void IsUsableCachedResult_PageFoundButNoEngineOrApiData_IsStale()
+        {
+            /* The Deep Rock Galactic: Survivor entry written while Cargo was rejecting queries. */
+            var poisoned = new PcGamingWikiLookupResult
+            {
+                PageTitle = "Deep Rock Galactic: Survivor",
+                Direct3DVersionsRaw = new List<string>(),
+            };
+
+            Assert.False(PcGamingWikiService.IsUsableCachedResult(poisoned));
+        }
+
+        [Fact]
+        public void IsUsableCachedResult_NullResult_IsStale()
+        {
+            Assert.False(PcGamingWikiService.IsUsableCachedResult(null));
+        }
+
+        [Fact]
+        public void IsUsableCachedResult_EngineOnly_IsUsable()
+        {
+            Assert.True(PcGamingWikiService.IsUsableCachedResult(
+                new PcGamingWikiLookupResult { PageTitle = "X", EngineRaw = "Unity" }));
+        }
+
+        [Fact]
+        public void IsUsableCachedResult_D3DVersionsOnly_IsUsable()
+        {
+            Assert.True(PcGamingWikiService.IsUsableCachedResult(
+                new PcGamingWikiLookupResult { PageTitle = "X", Direct3DVersionsRaw = new List<string> { "11" } }));
+        }
+
+        [Fact]
+        public void IsUsableCachedResult_NoWikiPageAtAll_IsUsable()
+        {
+            /* A game with no PCGamingWiki page is legitimately empty — re-querying it on every
+               open would only repeat the same miss. */
+            Assert.True(PcGamingWikiService.IsUsableCachedResult(new PcGamingWikiLookupResult()));
+        }
+
+        [Fact]
+        public void ParseWikitextEngine_UnityRow_ReturnsUnity()
+        {
+            const string wikitext =
+                "|engines      = \n{{Infobox game/row/engine|Unity|name=Unity 6|build=6000.4.7f1|ref=<ref>{{Refcheck|user=x|date=2026-09-22}}</ref>}}\n|release dates= \n";
+
+            Assert.Equal("Unity", PcGamingWikiService.ParseWikitextEngine(wikitext));
+        }
+
+        [Fact]
+        public void ParseWikitextEngine_FormerEngineListedFirst_PrefersCurrentEngine()
+        {
+            const string wikitext =
+                "|engines      = \n{{Infobox game/row/engine|Unity|name=Unity 5|Former|build=5.4.3f1}}\n" +
+                "{{Infobox game/row/engine|Unity|name=Unity 2020|build=2020.2}}\n|release dates= \n";
+
+            Assert.Equal("Unity", PcGamingWikiService.ParseWikitextEngine(wikitext));
+        }
+
+        [Fact]
+        public void ParseWikitextEngine_NoEnginesRow_ReturnsNull()
+        {
+            Assert.Null(PcGamingWikiService.ParseWikitextEngine("|engines      = \n|release dates= \n"));
+        }
+
+        [Fact]
+        public void ParseWikitextDirect3DVersions_SingleVersion_ReturnsIt()
+        {
+            const string wikitext = "{{API\n|direct3d versions      = 11\n|direct3d notes         = \n}}";
+
+            Assert.Equal(new[] { "11" }, PcGamingWikiService.ParseWikitextDirect3DVersions(wikitext));
+        }
+
+        [Fact]
+        public void ParseWikitextDirect3DVersions_MultipleVersions_SplitsThem()
+        {
+            const string wikitext = "{{API\n|direct3d versions      = 11, 12\n|direct3d notes         = \n}}";
+
+            Assert.Equal(new[] { "11", "12" }, PcGamingWikiService.ParseWikitextDirect3DVersions(wikitext));
+        }
+
+        [Fact]
+        public void ParseWikitextDirect3DVersions_EmptyOrMissing_ReturnsEmptyList()
+        {
+            Assert.Empty(PcGamingWikiService.ParseWikitextDirect3DVersions("{{API\n|direct3d versions      = \n}}"));
+            Assert.Empty(PcGamingWikiService.ParseWikitextDirect3DVersions("no api table here"));
+        }
     }
 }

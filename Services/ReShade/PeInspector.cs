@@ -143,7 +143,28 @@ namespace HdrUpscaleManager.Services.ReShade
             return exePath != null ? Path.GetDirectoryName(exePath) : installPath;
         }
 
+        /* Unity's player exe is a tiny stub that never imports a graphics DLL — UnityPlayer.dll,
+           next to it, picks and loads one at runtime — so the import walk alone always reads
+           Unknown. Confirmed live 2026-10-31 on Deep Rock Galactic: Survivor (DRG Survivor.exe,
+           ~650KB), where ReShade failed with "Unknown isn't supported by a drop-in ReShade
+           install". Unity on Windows defaults to D3D11 (D3D12 is opt-in), and D3D10/11/12 all
+           share the same dxgi.dll proxy anyway. A real import in the exe still wins. */
         public static PeInspectionResult Inspect(string exePath)
+        {
+            var result = InspectImports(exePath);
+            if (result != null && result.Api == GraphicsApi.Unknown && HasUnityPlayerBesideExe(exePath))
+                result.Api = GraphicsApi.D3D11;
+
+            return result;
+        }
+
+        private static bool HasUnityPlayerBesideExe(string exePath)
+        {
+            var dir = Path.GetDirectoryName(exePath);
+            return dir != null && File.Exists(Path.Combine(dir, "UnityPlayer.dll"));
+        }
+
+        private static PeInspectionResult InspectImports(string exePath)
         {
             try
             {
