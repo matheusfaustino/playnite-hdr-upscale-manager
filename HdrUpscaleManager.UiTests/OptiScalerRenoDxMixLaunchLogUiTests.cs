@@ -19,10 +19,10 @@ namespace HdrUpscaleManager.UiTests
        to confirm that expectation holds for real, not just on paper.
 
        Deep Rock Galactic isn't on RenoDX's wiki-matched list, so this uses the "Unreal Engine,
-       generic" fallback button — same no-tracked-record situation as
-       RenoDxUnityGenericLaunchLogUiTests (InstallRenoDxEngineAsync's own doc comment: generic
-       engine installs write no RenoDxRecords entry), so the addon file is found via recursive
-       search rather than record polling.
+       generic" fallback button — same as
+       RenoDxUnityGenericLaunchLogUiTests: the addon file is found via recursive search rather
+       than record polling, and the IsGeneric record the install writes is dropped in cleanup
+       through GenericRenoDxRecordCleanup.
 
        Install order: OptiScaler first, then RenoDX — exercises the ReShade-auto-install-for-
        RenoDX path landing correctly at ReShadeCoexistName (since OptiScaler already occupies the
@@ -192,6 +192,7 @@ namespace HdrUpscaleManager.UiTests
             CleanUpFreshlyCreatedFile(Path.Combine(cleanupDir, "ReShade.log"), testStartedUtc);
             CleanUpFreshlyCreatedFile(Path.Combine(cleanupDir, "ReShade.ini"), testStartedUtc);
             CleanUpFreshlyCreatedFile(addonPath, testStartedUtc);
+            GenericRenoDxRecordCleanup.RemoveByGameName(GameName, output);
 
             if (resolvedDir == null)
             {

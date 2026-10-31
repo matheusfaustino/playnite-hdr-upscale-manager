@@ -38,7 +38,8 @@ namespace HdrUpscaleManager.Services.Addons
     {
         UpToDate,
         UpdateAvailable,
-        NoLongerListed
+        NoLongerListed,
+        GenericNotTracked
     }
 
     public class RenoDxUpdateCheckResult
@@ -110,6 +111,22 @@ namespace HdrUpscaleManager.Services.Addons
 
             return true;
         }
+
+        /* Generic engine installs have no wiki entry, so the record carries no URL/version to
+           compare against — it exists so the window reports "Installed" and can uninstall. */
+        public static RenoDxInstalledRecord CreateGenericRecord(string gameId, string gameName, AddonInstallResult install) =>
+            new RenoDxInstalledRecord
+            {
+                GameId = gameId,
+                GameName = gameName,
+                InstallPath = install.InstalledPath,
+                AddonFileName = Path.GetFileName(install.InstalledPath),
+                IsGeneric = true,
+                FileHash = install.FileHash,
+                RemoteContentLength = install.RemoteContentLength,
+                RemoteLastModified = install.RemoteLastModified,
+                InstalledAtUtc = DateTimeOffset.UtcNow
+            };
 
         public static async Task<AddonInstallResult> InstallGenericAsync(
             string gameInstallPath, RenoDxEngine engine, bool useUeExtended = false, RemoteManifest manifest = null)
@@ -199,6 +216,9 @@ namespace HdrUpscaleManager.Services.Addons
             string wikiCacheDirectory,
             IDictionary<string, string> wikiNameOverrides = null)
         {
+            if (record.IsGeneric)
+                return new RenoDxUpdateCheckResult { Status = RenoDxUpdateStatus.GenericNotTracked };
+
             var wikiService = new RenoDxWikiService(wikiCacheDirectory);
             var mods = await wikiService.FetchAllAsync().ConfigureAwait(false);
             var match = RenoDxGameMatcher.Match(record.GameName, mods, wikiNameOverrides);

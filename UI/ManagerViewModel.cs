@@ -675,6 +675,7 @@ namespace HdrUpscaleManager.UI
                     return;
                 }
 
+                RenoDxRecords.Set(GameId, RenoDxService.CreateGenericRecord(GameId, GameName, generic));
                 StatusText = $"Detected {detection.Engine} — installed generic RenoDX build.";
             }
             catch (Exception ex)
@@ -687,9 +688,8 @@ namespace HdrUpscaleManager.UI
 
         /* Explicit-control counterpart to InstallRenoDxAsync's best-effort button — forces a
            specific engine build (and, for Unreal, a specific UE-Extended choice) rather than
-           auto-detecting. No RenoDxRecords entry is written here: generic engine installs have
-           no wiki version to track, so update-check/uninstall stay scoped to matched installs
-           only, same as before this moved from the game's right-click menu into this window. */
+           auto-detecting. The record written here is flagged IsGeneric: there's no wiki version
+           to track, so update-check just says so, but status and uninstall still work. */
         private async Task InstallRenoDxEngineAsync(RenoDxEngine engine, bool? forceUeExtended)
         {
             var engineLabel = engine == RenoDxEngine.UnrealEngine
@@ -715,6 +715,7 @@ namespace HdrUpscaleManager.UI
                     return;
                 }
 
+                RenoDxRecords.Set(GameId, RenoDxService.CreateGenericRecord(GameId, GameName, result));
                 StatusText = $"Installed RenoDX ({engineLabel}).";
             }
             catch (Exception ex)
@@ -761,6 +762,7 @@ namespace HdrUpscaleManager.UI
                     RenoDxUpdateStatus.UpToDate => "RenoDX is already up to date.",
                     RenoDxUpdateStatus.UpdateAvailable => "A newer RenoDX snapshot is available — reinstall to update.",
                     RenoDxUpdateStatus.NoLongerListed => "This game no longer has a matching RenoDX wiki entry.",
+                    RenoDxUpdateStatus.GenericNotTracked => "Generic engine installs have no tracked version — reinstall to get the latest build.",
                     _ => "Unknown update status."
                 };
             }

@@ -15,12 +15,11 @@ namespace HdrUpscaleManager.UiTests
        loads and registers the generic RenoDX build at runtime, not just file presence. Asserts on
        `Registered add-on "RenoDX"` — confirmed live 2026-08-10 against a real ReShade.log.
 
-       Deliberately does NOT poll renodx_installs.json — confirmed live 2026-08-09 that
-       InstallRenoDxEngineAsync's own doc comment is explicit: "No RenoDxRecords entry is written
-       here: generic engine installs have no wiki version to track, so update-check/uninstall
-       stay scoped to matched installs only." There is no Uninstall button for this install path
-       either, so the addon file is found via recursive search and removed directly, same as this
-       test already has to do for ReShade (which also has no Uninstall action).
+       Deliberately does NOT poll renodx_installs.json for the install itself — the addon file
+       is found via recursive search. Generic installs do write an IsGeneric record (since
+       v0.3.4), so cleanup removes the addon file directly and then drops that record through
+       GenericRenoDxRecordCleanup, same as it already has to do for ReShade (which has no
+       Uninstall action).
 
        Game: Against the Storm — confirmed Unity via real folder scan (UnityPlayer.dll present),
        not on RenoDX's wiki-matched list, so this exercises the auto-detect button specifically.
@@ -109,6 +108,7 @@ namespace HdrUpscaleManager.UiTests
                 CleanUpFreshlyCreatedFile(Path.Combine(cleanupDir, "ReShade.log"), testStartedUtc);
                 CleanUpFreshlyCreatedFile(Path.Combine(cleanupDir, "ReShade.ini"), testStartedUtc);
                 CleanUpFreshlyCreatedFile(addonPath, testStartedUtc);
+                GenericRenoDxRecordCleanup.RemoveByGameName(GameName, output);
 
                 if (resolvedDir == null)
                 {

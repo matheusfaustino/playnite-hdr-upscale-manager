@@ -12,6 +12,7 @@ namespace HdrUpscaleManager.Models.Addons
         public string InstallPath { get; set; }
         public string AddonFileName { get; set; }
         public string MatchedWikiName { get; set; }
+        public bool IsGeneric { get; set; }
         public string DownloadUrl { get; set; }
         public string FileHash { get; set; }
         public long? RemoteContentLength { get; set; }
