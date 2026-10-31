@@ -15,6 +15,24 @@ namespace HdrUpscaleManager.UiTests
     {
         private const string RecordStoreFileName = "renodx_installs.json";
 
+        public static bool ExistsForGameName(string gameName)
+        {
+            try
+            {
+                var path = PluginPaths.RecordStorePath(RecordStoreFileName);
+                if (!File.Exists(path)) return false;
+
+                var all = JsonConvert.DeserializeObject<Dictionary<string, JObject>>(File.ReadAllText(path));
+                return all != null && all.Values.Any(v =>
+                    string.Equals((string)v["GameName"], gameName, StringComparison.OrdinalIgnoreCase) &&
+                    (bool?)v["IsGeneric"] == true);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static void RemoveByGameName(string gameName, ITestOutputHelper output)
         {
             try

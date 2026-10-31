@@ -73,6 +73,14 @@ namespace HdrUpscaleManager.UiTests
                 resolvedDir = Path.GetDirectoryName(addonPath);
                 output.WriteLine($"RenoDX (Unity, generic) installed as '{addonPath}'.");
 
+                /* Regression: generic installs used to write no record, so the window kept saying
+                   "Not installed." and Uninstall stayed disabled (found live 2026-10-31). */
+                var recordWritten = Retry.WhileFalse(
+                    () => GenericRenoDxRecordCleanup.ExistsForGameName(GameName),
+                    timeout: TimeSpan.FromSeconds(10),
+                    interval: TimeSpan.FromMilliseconds(250)).Result;
+                Assert.True(recordWritten, $"RenoDX (Unity, generic) installed for '{GameName}' but no IsGeneric record was written to renodx_installs.json.");
+
                 var reShadeProxyPath = FindExistingReShadeProxyRecursive(resolvedDir);
                 Assert.True(reShadeProxyPath != null,
                     $"RenoDX needs ReShade as a host, but no ReShade proxy DLL was found under '{resolvedDir}' — " +
