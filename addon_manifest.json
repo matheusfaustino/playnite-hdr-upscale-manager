@@ -5,7 +5,14 @@
   "Description": "Configure ReShade, RenoDX/Luma HDR mods, DXVK, and OptiScaler (FSR/XeSS) per game from inside Playnite. AMD-focused today, with NVIDIA support planned.",
   "Author": "matheusfaustino",
   "Type": "GenericPlugin",
-  "Tags": ["HDR", "Upscaling", "ReShade", "Mods", "Luma", "RenoDX"],
+  "Tags": [
+    "HDR",
+    "Upscaling",
+    "ReShade",
+    "Mods",
+    "Luma",
+    "RenoDX"
+  ],
   "IconUrl": "https://raw.githubusercontent.com/matheusfaustino/playnite-hdr-upscale-manager/master/Resources/icon.png",
   "SourceUrl": "https://github.com/matheusfaustino/playnite-hdr-upscale-manager",
   "Links": {
@@ -22,5 +29,15 @@
       "Image": "https://raw.githubusercontent.com/matheusfaustino/playnite-hdr-upscale-manager/master/Screenshots/fullscreen-manager.png"
     }
   ],
-  "Packages": []
+  "Packages": [
+    {
+      "Version": "0.3.2",
+      "RequiredApiVersion": "6.16.0",
+      "ReleaseDate": "2026-08-10T16:20:59Z",
+      "PackageUrl": "https://github.com/matheusfaustino/playnite-hdr-upscale-manager/releases/download/v0.3.2/hdr-upscale-manager-v0.3.2.pext",
+      "Changelog": [
+        "release: v0.3.2"
+      ]
+    }
+  ]
 }
