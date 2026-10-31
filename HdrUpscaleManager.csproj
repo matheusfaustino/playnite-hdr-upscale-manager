@@ -10,10 +10,10 @@
     <!-- Source of truth for the plugin version is extension.yaml (that's what Playnite's
          Add-ons UI reads). Kept in sync here so the DLL's AssemblyVersion / FileVersion
          match what shows up in Playnite's extension logs on load. Bump both together. -->
-    <Version>0.3.3</Version>
-    <AssemblyVersion>0.3.3.0</AssemblyVersion>
-    <FileVersion>0.3.3.0</FileVersion>
-    <InformationalVersion>0.3.3</InformationalVersion>
+    <Version>0.3.4</Version>
+    <AssemblyVersion>0.3.4.0</AssemblyVersion>
+    <FileVersion>0.3.4.0</FileVersion>
+    <InformationalVersion>0.3.4</InformationalVersion>
 
     <!-- Security guard: promote NuGet vulnerability warnings (moderate/high/critical)
          to errors so we can't ship a build that pulls in a known-vulnerable package.
