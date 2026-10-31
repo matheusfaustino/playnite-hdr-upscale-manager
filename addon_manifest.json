@@ -31,6 +31,15 @@
   ],
   "Packages": [
     {
+      "Version": "0.3.3",
+      "RequiredApiVersion": "6.16.0",
+      "ReleaseDate": "2026-10-31T19:21:43Z",
+      "PackageUrl": "https://github.com/matheusfaustino/playnite-hdr-upscale-manager/releases/download/v0.3.3/hdr-upscale-manager-v0.3.3.pext",
+      "Changelog": [
+        "release: v0.3.3"
+      ]
+    },
+    {
       "Version": "0.3.2",
       "RequiredApiVersion": "6.16.0",
       "ReleaseDate": "2026-08-10T16:20:59Z",
